@@ -1,12 +1,14 @@
 import express from "express";
 import * as UserController from "../../Controllers/UserController";
+import validate from "../../Middlewares/Validate";
+import { signupSchema, signinSchema } from "../../Schemas/AuthSchema";
 import { AuthReqValidate } from "../../Middlewares";
 
 const router = express.Router();
 
 router.post(
     "/signup",
-    AuthReqValidate.authReqValidate,
+    validate(signupSchema),
     UserController.create
 );
 
@@ -17,8 +19,18 @@ router.get(
 
 router.post(
     "/signin",
-    AuthReqValidate.authReqValidate,
+    validate(signinSchema),
     UserController.signIn
+);
+
+router.post(
+    "/refresh-token",
+    UserController.refreshToken
+);
+
+router.post(
+    "/logout",
+    UserController.logout
 );
 
 router.get(

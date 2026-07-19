@@ -8,3 +8,4 @@ export const PORT = process.env.PORT || "3000";
 export const SALT = bcrypt.genSaltSync(10);
 
 export const JWT_KEY = process.env.JWT_KEY as string;
+export const REFRESH_JWT_KEY = process.env.REFRESH_JWT_KEY as string;

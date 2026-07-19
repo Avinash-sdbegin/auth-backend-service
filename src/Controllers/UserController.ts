@@ -1,165 +1,140 @@
 import { Request, Response } from "express";
 import UserService from "../Service/UserService";
-import { OK, INTERNAL_SERVER_ERROR } from "../Utils/Response";
+import { OK } from "../Utils/Response";
+import asyncHandler from "../Utils/asyncHandler";
 
 const userService = new UserService();
 
-const create = async (req: Request, res: Response) => {
-    try {
-        console.log(req.body);
-        const result = await userService.create(req.body);
-        return res.status(OK).json({
-            data: result,
-            err: {},
-            success: true,
-            message: "User created successfully"
-        });
-    } catch (error: unknown) {
-        console.log((error as { explanation: string }).explanation || 'something went wrong');
-        return res.status((error as { statusCode: number }).statusCode || INTERNAL_SERVER_ERROR).json({
+const create = asyncHandler(async (req: Request, res: Response) => {
+    console.log(req.body);
+
+    const result = await userService.create(req.body);
+
+    return res.status(OK).json({
+        data: result,
+        err: {},
+        success: true,
+        message: "User created successfully"
+    });
+});
+
+const destroy = asyncHandler(async (req: Request, res: Response) => {
+    const result = await userService.destroy(Number(req.params.id));
+
+    return res.status(OK).json({
+        data: result,
+        err: {},
+        success: true,
+        message: "User deleted successfully"
+    });
+});
+
+const getById = asyncHandler(async (req: Request, res: Response) => {
+    const result = await userService.getById(Number(req.query.id));
+
+    return res.status(OK).json({
+        data: result,
+        err: {},
+        success: true,
+        message: "User fetched successfully"
+    });
+});
+
+const refreshToken = asyncHandler(async (req: Request, res: Response) => {
+
+    const token = req.cookies.refreshToken;
+
+    if (!token) {
+        return res.status(401).json({
             data: {},
-            err: (error as { explanation: string }).explanation || 'somethign went wrong',
+            err: "Refresh token missing",
             success: false,
-            message: (error as { message: string }).message || 'can not create user'
+            message: "Unauthorized"
         });
     }
-}
 
-const destroy = async (req: Request, res: Response) => {
-    try {
-        const result = await userService.destroy(Number(req.params.id));
-        return res.status(OK).json({
-            data: result,
-            err: {},
-            success: true,
-            message: "User deleted successfully"
-        });
-    } catch (error: unknown) {
-        console.log((error as { explanation: string }).explanation || 'something went wrong');
-        return res.status((error as { statusCode: number }).statusCode || INTERNAL_SERVER_ERROR).json({
-            data: {},
-            err: (error as { explanation: string }).explanation || 'something went wrong',
-            success: false,
-            message: (error as { message: string }).message || 'can not delete user'
-        });
-    }
-}
+    const accessToken =
+        userService.refreshAccessToken(token);
 
-const getById = async (req: Request, res: Response) => {
-    try {
-        const result = await userService.getById(Number(req.query.id));
-        return res.status(OK).json({
-            data: result,
-            err: {},
-            success: true,
-            message: "User fetched successfully"
-        });
-    } catch (error: unknown) {
-        console.log((error as { explanation: string }).explanation || 'something went wrong');
-        return res.status((error as { statusCode: number }).statusCode || INTERNAL_SERVER_ERROR).json({
-            data: {},
-            err: (error as { explanation: string }).explanation || 'something went wrong',
-            success: false,
-            message: (error as { message: string }).message || 'can not fetch user'
-        });
-    }
-}
+    return res.status(OK).json({
+        data: {
+            accessToken
+        },
+        err: {},
+        success: true,
+        message: "Access token refreshed successfully"
+    });
+});
 
-const signIn = async (req: Request, res: Response) => {
-    try {
-        const result = await userService.signIn(req.body.email, req.body.password);
-        return res.status(OK).json({
-            data: result,
-            err: {},
-            success: true,
-            message: "User signedIn successfully"
-        });
-    } catch (error: unknown) {
-        console.log((error as { explanation: string }).explanation || 'something went wrong');
-        return res.status((error as { statusCode: number }).statusCode || INTERNAL_SERVER_ERROR).json({
-            data: {},
-            err: (error as { explanation: string }).explanation || 'something went wrong',
-            success: false,
-            message: (error as { message: string }).message || 'can not signIn'
-        });
-    }
-}
+const signIn = asyncHandler(async (req: Request, res: Response) => {
+    const { accessToken, refreshToken } = await userService.signIn(
+        req.body.email,
+        req.body.password
+    );
 
-const isAuthenticated = async (req: Request, res: Response) => {
-    try {
-        console.log("Headers:", req.headers);
+    res.cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
 
-        const token = req.headers["x-access-token"] as string;
+    return res.status(OK).json({
+        data: {
+            accessToken
+        },
+        err: {},
+        success: true,
+        message: "User signed in successfully"
+    });
+});
 
-        console.log("Token:", token);
-        console.log("Type:", typeof token);
+const isAuthenticated = asyncHandler(async (req: Request, res: Response) => {
+    const token = req.headers["x-access-token"] as string;
 
-        const result = await userService.isAuthenticated(token);
+    const result = await userService.isAuthenticated(token);
 
-        return res.status(OK).json({
-            data: result,
-            err: {},
-            success: true,
-            message: "User is authenticated and token is valid"
-        });
-    } catch (error: unknown) {
-        console.log((error as { explanation: string }).explanation || 'something went wrong');
+    return res.status(OK).json({
+        data: result,
+        err: {},
+        success: true,
+        message: "User is authenticated and token is valid"
+    });
+});
 
-        return res.status((error as { statusCode: number }).statusCode || INTERNAL_SERVER_ERROR).json({
-            data: {},
-            err: (error as { explanation: string }).explanation || 'something went wrong',
-            success: false,
-            message: (error as { message: string }).message || 'can not signIn'
-        });
-    }
-}
+const logout = asyncHandler(async (req: Request, res: Response) => {
 
-const isAdmin = async (req: Request, res: Response) => {
-    try {
-        const result = await userService.isAdmin(Number(req.query.id));
-        // if (result) return res.status(OK).json({
-        //     data: result,
-        //     err: {},
-        //     success: true,
-        //     message: "User authenticated"
-        // });
-        // return res.status(OK).json({
-        //     data: result,
-        //     err: {},
-        //     success: true,
-        //     message: "User not authenticated"
-        // });
-        if (result) {
-            return res.status(OK).json({
-                data: result,
-                err: {},
-                success: true,
-                message: "User is an Admin"
-            });
-        }
+    res.clearCookie("refreshToken");
 
-        return res.status(OK).json({
-            data: result,
-            err: {},
-            success: true,
-            message: "User is not an Admin"
-        });
-    } catch (error: unknown) {
-        console.log((error as { explanation: string }).explanation || 'something went wrong');
-        return res.status((error as { statusCode: number }).statusCode || INTERNAL_SERVER_ERROR).json({
-            data: {},
-            err: (error as { explanation: string }).explanation || 'something went wrong',
-            success: false,
-            message: (error as { message: string }).message || 'can not authenticated user'
-        });
-    }
-}
+    return res.status(OK).json({
+        data: {},
+        err: {},
+        success: true,
+        message: "Logged out successfully"
+    });
+
+});
+
+const isAdmin = asyncHandler(async (req: Request, res: Response) => {
+    const result = await userService.isAdmin(Number(req.query.id));
+
+    return res.status(OK).json({
+        data: result,
+        err: {},
+        success: true,
+        message: result
+            ? "User is an Admin"
+            : "User is not an Admin"
+    });
+});
 
 export {
     create,
     destroy,
     getById,
     signIn,
+    refreshToken,
     isAuthenticated,
+    logout,
     isAdmin
 };
