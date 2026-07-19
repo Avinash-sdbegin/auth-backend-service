@@ -9,3 +9,4 @@ export const SALT = bcrypt.genSaltSync(10);
 
 export const JWT_KEY = process.env.JWT_KEY as string;
 export const REFRESH_JWT_KEY = process.env.REFRESH_JWT_KEY as string;
+export const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000";

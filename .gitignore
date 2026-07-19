@@ -3,3 +3,4 @@ node_modules/
 src/Config/config.json
 /src/generated/prisma
 dist
+src/swagger-output.json
